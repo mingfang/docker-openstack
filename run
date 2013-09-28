@@ -1,0 +1,1 @@
+docker run -privileged -p 49802:80 openstack

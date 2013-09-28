@@ -1,0 +1,1 @@
+docker run -i -t -p 49802:80 -privileged -lxc-conf="lxc.aa_profile=unconfined" openstack /bin/bash
