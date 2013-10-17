@@ -4,8 +4,8 @@ FROM ubuntu
  
 RUN	echo 'deb http://archive.ubuntu.com/ubuntu precise main universe' > /etc/apt/sources.list.d/sources.list && \
     echo 'deb http://archive.ubuntu.com/ubuntu precise-updates universe' >> /etc/apt/sources.list.d/sources.list && \
-    echo 'deb http://get.docker.io/ubuntu docker main' > /etc/apt/sources.list.d/docker.list && \
     apt-get update
+#    echo 'deb http://get.docker.io/ubuntu docker main' > /etc/apt/sources.list.d/docker.list && \
 
 #Prevent daemon start during install
 RUN	echo '#!/bin/sh\nexit 101' > /usr/sbin/policy-rc.d && \
@@ -24,11 +24,6 @@ RUN apt-get install -y openssh-server && \
 #Utilities
 RUN apt-get install -y vim less ntp net-tools inetutils-ping curl git
 
-#For Grizzly
-RUN apt-get install -y ubuntu-cloud-keyring && \
-	echo "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/grizzly main" >> /etc/apt/sources.list.d/grizzly.list &&\
-    apt-get update
-
 #Others
 RUN apt-get install -y vlan bridge-utils python-software-properties software-properties-common python-keyring
 
@@ -42,6 +37,12 @@ RUN apt-get install -y rabbitmq-server
 ENV RABBITMQ_NODENAME rabbit@localhost
 ENV RABBITMQ_NODE_IP_ADDRESS 127.0.0.1
 ENV ERL_EPMD_ADDRESS 127.0.0.1
+
+
+#For Openstack
+RUN apt-get install -y ubuntu-cloud-keyring && \
+	echo "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/havana main" >> /etc/apt/sources.list.d/openstack.list &&\
+    apt-get update
 
 #Keystone
 RUN apt-get install -y keystone && \
@@ -60,12 +61,17 @@ RUN apt-get install -y keystone && \
 
 #Nova Controller
 RUN apt-get install -y nova-novncproxy novnc nova-api nova-ajax-console-proxy nova-cert \
-    	nova-conductor nova-consoleauth nova-doc nova-scheduler nova-network \
-    	memcached libapache2-mod-wsgi openstack-dashboard && \
+    	nova-conductor nova-consoleauth nova-doc nova-scheduler python-novaclient \
+    	nova-network && \
     sed -i -e "s#^admin_tenant_name =.*#admin_tenant_name = service#" \
     	-e "s#^admin_user =.*#admin_user = nova#" \
     	-e "s#^admin_password =.*#admin_password = nova#" \
     	/etc/nova/api-paste.ini
+
+#Nova Compute Node
+#RUN apt-get install -y nova-compute-kvm python-novaclient python-guestfs && \
+#    chmod 0644 /boot/vmlinuz* && \
+#    rm /var/lib/nova/nova.sqlite
 
 #Glance
 RUN apt-get install -y glance && \
@@ -88,8 +94,11 @@ RUN apt-get install -y glance && \
 #Docker in Docker, not working yet
 #RUN apt-get install -y iptables ca-certificates && \
 #	apt-get install -y --force-yes docker
-RUN git clone https://github.com/mingfang/openstack-docker.git && \
-    cd /openstack-docker && sh setup_on_rcbops-openstack.sh
+
+#RUN git clone https://github.com/mingfang/openstack-docker.git && \
+#    ln -snf /openstack-docker/nova-driver /usr/lib/python2.7/dist-packages/nova/virt/docker  && \
+#    ln -snf /openstack-docker/nova-driver/docker.filters /etc/nova/rootwrap.d/docker.filters
+
 
 
 
@@ -101,15 +110,21 @@ RUN git clone https://github.com/mingfang/openstack-docker.git && \
 #    	/etc/cinder/api-paste.ini && \
 # 	echo 'sql_connection = mysql://cinder@localhost/cinder\nrabbit_host = localhost' >> /etc/cinder/cinder.conf 
 
+#Dashboard
+RUN apt-get install -y memcached python-memcache libapache2-mod-wsgi openstack-dashboard && \
+    apt-get remove -y --purge openstack-dashboard-ubuntu-theme && \
+    echo "SESSION_ENGINE = 'django.contrib.sessions.backends.cache'" >> /etc/openstack-dashboard/local_settings.py
 
 #Config files
-ADD ./nova.conf /etc/nova/nova.conf
+RUN mv /etc/nova/nova.conf /etc/nova/nova.conf.saved
+ADD nova.conf /etc/nova/nova.conf
 ADD supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+ADD install-sample-image.sh install-sample-image.sh
 
 #Init MySql
 ADD ./mysql.ddl mysql.ddl
 ADD ./sample_data.sh sample_data.sh
-RUN mysqld & keystone-all & sleep 3 && \
+RUN mysqld & keystone-all & apachectl start & sleep 3 && \
     mysql < mysql.ddl && \
     keystone-manage db_sync && \
     bash sample_data.sh && \
@@ -123,10 +138,12 @@ ENV OS_TENANT_NAME demo
 ENV OS_PASSWORD secrete
 ENV OS_AUTH_URL http://localhost:35357/v2.0
 
-#ENV APACHE_RUN_DIR /var/run/apache2
+ENV APACHE_RUN_DIR /var/run/apache2
 ENV APACHE_LOG_DIR /var/log/apache2
 ENV APACHE_RUN_USER nova
 ENV APACHE_RUN_GROUP nova
 EXPOSE 22 80
+
+
 
 
