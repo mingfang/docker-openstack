@@ -140,8 +140,8 @@ ENV OS_AUTH_URL http://localhost:35357/v2.0
 
 ENV APACHE_RUN_DIR /var/run/apache2
 ENV APACHE_LOG_DIR /var/log/apache2
-ENV APACHE_RUN_USER nova
-ENV APACHE_RUN_GROUP nova
+ENV APACHE_RUN_USER www-data
+ENV APACHE_RUN_GROUP www-data
 EXPOSE 22 80
 
 
