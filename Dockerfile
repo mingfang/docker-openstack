@@ -69,9 +69,8 @@ RUN apt-get install -y nova-novncproxy novnc nova-api nova-ajax-console-proxy no
     	/etc/nova/api-paste.ini
 
 #Nova Compute Node
-#RUN apt-get install -y nova-compute-kvm python-novaclient python-guestfs && \
-#    chmod 0644 /boot/vmlinuz* && \
-#    rm /var/lib/nova/nova.sqlite
+RUN apt-get install -y nova-compute-kvm python-novaclient && \
+    rm /var/lib/nova/nova.sqlite
 
 #Glance
 RUN apt-get install -y glance && \
