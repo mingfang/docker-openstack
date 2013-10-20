@@ -6,6 +6,7 @@ RUN	echo 'deb http://archive.ubuntu.com/ubuntu precise main universe' > /etc/apt
     echo 'deb http://archive.ubuntu.com/ubuntu precise-updates universe' >> /etc/apt/sources.list.d/sources.list && \
     apt-get update
 #    echo 'deb http://get.docker.io/ubuntu docker main' > /etc/apt/sources.list.d/docker.list && \
+ENV DEBIAN_FRONTEND noninteractive
 
 #Prevent daemon start during install
 RUN	echo '#!/bin/sh\nexit 101' > /usr/sbin/policy-rc.d && \
@@ -68,10 +69,6 @@ RUN apt-get install -y nova-novncproxy novnc nova-api nova-ajax-console-proxy no
     	-e "s#^admin_password =.*#admin_password = nova#" \
     	/etc/nova/api-paste.ini
 
-#Nova Compute Node
-RUN apt-get install -y nova-compute-kvm python-novaclient && \
-    rm /var/lib/nova/nova.sqlite
-
 #Glance
 RUN apt-get install -y glance && \
     sed -i -e "s#^sql_connection.*#sql_connection = mysql://glance@localhost/glance#" \
@@ -80,6 +77,7 @@ RUN apt-get install -y glance && \
     	-e "s#^admin_password =.*#admin_password = glance#" \
     	-e "s|^\#config_file.*|config_file = /etc/glance/glance-api-paste.ini|" \
     	-e "s|^\#flavor.*|flavor = keystone|" \
+        -e "2 i container_formats = ami,ari,aki,bare,ovf,docker" \
     	/etc/glance/glance-api.conf && \
     sed -i -e "s#^sql_connection.*#sql_connection = mysql://glance@localhost/glance#" \
     	-e "s#^admin_tenant_name =.*#admin_tenant_name = service#" \
@@ -89,17 +87,6 @@ RUN apt-get install -y glance && \
     	-e "s|^\#flavor.*|flavor = keystone|" \
     	/etc/glance/glance-registry.conf  && \
     echo "[pipeline:glance-registry-keystone]\npipeline = authtoken context registryapp" >> /etc/glance/glance-registry-paste.ini
-
-#Docker in Docker, not working yet
-#RUN apt-get install -y iptables ca-certificates && \
-#	apt-get install -y --force-yes docker
-
-#RUN git clone https://github.com/mingfang/openstack-docker.git && \
-#    ln -snf /openstack-docker/nova-driver /usr/lib/python2.7/dist-packages/nova/virt/docker  && \
-#    ln -snf /openstack-docker/nova-driver/docker.filters /etc/nova/rootwrap.d/docker.filters
-
-
-
 
 #Cinder
 #RUN apt-get -y install cinder-api cinder-scheduler cinder-volume open-iscsi python-cinderclient tgt && \
@@ -114,19 +101,30 @@ RUN apt-get install -y memcached python-memcache libapache2-mod-wsgi openstack-d
     apt-get remove -y --purge openstack-dashboard-ubuntu-theme && \
     echo "SESSION_ENGINE = 'django.contrib.sessions.backends.cache'" >> /etc/openstack-dashboard/local_settings.py
 
+#Nova Compute Node
+RUN apt-get install -y nova-compute && \
+    sed -i -e "s|^compute_driver=.*|compute_driver=docker.DockerDriver|" /etc/nova/nova-compute.conf
+
+#Docker
+RUN apt-get install -qqy iptables ca-certificates lxc && \
+    wget -O /usr/local/bin/docker https://get.docker.io/builds/Linux/x86_64/docker-latest && \
+    chmod +x /usr/local/bin/docker
+VOLUME /var/lib/docker
+
 #Config files
-RUN mv /etc/nova/nova.conf /etc/nova/nova.conf.saved
-ADD nova.conf /etc/nova/nova.conf
-ADD supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-ADD install-sample-image.sh install-sample-image.sh
+ADD ./ /docker-openstack
+RUN cd /docker-openstack && \
+    chmod +x *.sh && \
+    mv /etc/nova/nova.conf /etc/nova/nova.conf.saved && \
+    cp nova.conf /etc/nova/nova.conf && \
+    cp supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
 
 #Init MySql
-ADD ./mysql.ddl mysql.ddl
-ADD ./sample_data.sh sample_data.sh
 RUN mysqld & keystone-all & apachectl start & sleep 3 && \
-    mysql < mysql.ddl && \
+    mysql < /docker-openstack/mysql.ddl && \
     keystone-manage db_sync && \
-    bash sample_data.sh && \
+    /docker-openstack/sample_data.sh && \
     nova-manage db sync && \
     glance-manage db_sync && \
     mysqladmin shutdown

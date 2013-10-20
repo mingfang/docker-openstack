@@ -1,1 +1,1 @@
-docker run -i -t -p 49802:80 -privileged -lxc-conf="lxc.aa_profile=unconfined" openstack /bin/bash
+docker run -p 49802:80 -dns 8.8.8.8 -privileged -lxc-conf="lxc.aa_profile=unconfined" -i -t openstack /bin/bash
