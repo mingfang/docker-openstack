@@ -23,7 +23,7 @@ RUN apt-get install -y openssh-server && \
 	echo 'root:root' |chpasswd
 
 #Utilities
-RUN apt-get install -y vim less ntp net-tools inetutils-ping curl git
+RUN apt-get install -y vim less ntp net-tools inetutils-ping curl git telnet
 
 #Others
 RUN apt-get install -y vlan bridge-utils python-software-properties software-properties-common python-keyring
