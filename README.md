@@ -25,6 +25,7 @@ Run the `install-ubuntu-image.sh` script to pull the `ubuntu` image into your lo
 
 #### Using Horizon
 This part is a workaround caused by the Docker in Docker voodoo.  I don't a solution so the workaround is to use a ssh tunnel.
+
 1. Using another terminal, `vagrant ssh` into your VM again.  
 2. Then `sudo su` to become root.
 3. `docker ps` to find out what port 22 is mapped to.  It should be 49Something.
