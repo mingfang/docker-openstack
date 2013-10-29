@@ -24,11 +24,8 @@ The `docker ps` command will show that the Docker Registry is running in a conta
 Run the `install-ubuntu-image.sh` script to pull the `ubuntu` image into your local Registry.
 
 #### Using Horizon
-This part is a workaround caused by the Docker in Docker voodoo.  I don't a solution so the workaround is to use a ssh tunnel.
+1. Point your browser to `http://localhost:49802/horizon`
+2. You will now be able to launch Docker containers inside OpenStack!
 
-1. Using another terminal, `vagrant ssh` into your VM again.  
-2. Then `sudo su` to become root.
-3. `docker ps` to find out what port 22 is mapped to.  It should be 49Something.
-4. Create a ssh tunnel into the container `ssh localhost -p 49204 -N -L 0.0.0.0:49888:localhost:80 -vv`. Note replace `49204` with your port.
-5. Point your browser to `http://localhost:49888/horizon`
-6. You will now be able to launch Docker containers inside OpenStack!
+Special thanks to Jérôme Petazzoni for helping me with a previous DNS/Networking problem.
+Find out more from his blog entry here http://jpetazzo.github.io/2013/10/16/configure-docker-bridge-network/
