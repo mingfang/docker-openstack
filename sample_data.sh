@@ -47,6 +47,8 @@ NOVA_PASSWORD=${NOVA_PASSWORD:-${SERVICE_PASSWORD:-nova}}
 GLANCE_PASSWORD=${GLANCE_PASSWORD:-${SERVICE_PASSWORD:-glance}}
 EC2_PASSWORD=${EC2_PASSWORD:-${SERVICE_PASSWORD:-ec2}}
 SWIFT_PASSWORD=${SWIFT_PASSWORD:-${SERVICE_PASSWORD:-swiftpass}}
+NEUTRON_PASSWORD=${NEUTRON_PASSWORD:-${NEUTRON_PASSWORD:-neutron}}
+HEAT_PASSWORD=${HEAT_PASSWORD:-${HEAT_PASSWORD:-heat}}
 
 CONTROLLER_PUBLIC_ADDRESS=${CONTROLLER_PUBLIC_ADDRESS:-localhost}
 CONTROLLER_ADMIN_ADDRESS=${CONTROLLER_ADMIN_ADDRESS:-localhost}
@@ -136,6 +138,22 @@ keystone user-role-add --user-id $SWIFT_USER \
                        --role-id $ADMIN_ROLE \
                        --tenant-id $SERVICE_TENANT
 
+NEUTRON_USER=$(get_id keystone user-create --name=neutron \
+                                         --pass="${NEUTRON_PASSWORD}" \
+                                         --tenant-id $SERVICE_TENANT)
+
+keystone user-role-add --user-id $NEUTRON_USER \
+                       --role-id $ADMIN_ROLE \
+                       --tenant-id $SERVICE_TENANT
+
+HEAT_USER=$(get_id keystone user-create --name=heat \
+                                         --pass="${HEAT_PASSWORD}"\
+                                         --tenant-id $SERVICE_TENANT)
+
+keystone user-role-add --user-id $HEAT_USER \
+                       --role-id $ADMIN_ROLE \
+                       --tenant-id $SERVICE_TENANT
+
 #
 # Keystone service
 #
@@ -219,6 +237,34 @@ fi
 #        --adminurl    "http://$CONTROLLER_ADMIN_ADDRESS:8888/v1" \
 #        --internalurl "http://$CONTROLLER_INTERNAL_ADDRESS:8888/v1/AUTH_\$(tenant_id)s"
 #fi
+
+#
+# Neutron service
+#
+#NEUTRON_SERVICE=$(get_id \
+#keystone service-create --name=neutron \
+#                        --type="network" \
+#                        --description="Networking Service")
+#if [[ -z "$DISABLE_ENDPOINTS" ]]; then
+#    keystone endpoint-create --region RegionOne --service-id $NEUTRON_SERVICE \
+#        --publicurl   "http://$CONTROLLER_PUBLIC_ADDRESS:8888/v1/AUTH_\$(tenant_id)s" \
+#        --adminurl    "http://$CONTROLLER_ADMIN_ADDRESS:8888/v1" \
+#        --internalurl "http://$CONTROLLER_INTERNAL_ADDRESS:8888/v1/AUTH_\$(tenant_id)s"
+#fi
+
+#
+# Heat Orchestration API
+#
+HEAT_SERVICE=$(get_id \
+keystone service-create --name=heat \
+                        --type="orchestration" \
+                        --description="Heat Orchestration API")
+if [[ -z "$DISABLE_ENDPOINTS" ]]; then
+    keystone endpoint-create --region RegionOne --service-id $HEAT_SERVICE \
+        --publicurl "http://$CONTROLLER_PUBLIC_ADDRESS:8004/v1/\$(tenant_id)s" \
+        --internalurl "http://$CONTROLLER_INTERNAL_ADDRESS:8004/v1/\$(tenant_id)s" \
+        --adminurl  "http://$CONTROLLER_ADMIN_ADDRESS:8004/v1/\$(tenant_id)s"
+fi
 
 # create ec2 creds and parse the secret and access key returned
 RESULT=$(keystone ec2-credentials-create --tenant-id=$SERVICE_TENANT --user-id=$ADMIN_USER)

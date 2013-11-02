@@ -2,8 +2,8 @@
 
 FROM ubuntu
  
-RUN echo 'deb http://archive.ubuntu.com/ubuntu precise main universe' > /etc/apt/sources.list.d/sources.list && \
-    echo 'deb http://archive.ubuntu.com/ubuntu precise-updates universe' >> /etc/apt/sources.list.d/sources.list && \
+RUN echo 'deb http://archive.ubuntu.com/ubuntu precise main universe' > /etc/apt/sources.list && \
+    echo 'deb http://archive.ubuntu.com/ubuntu precise-updates universe' >> /etc/apt/sources.list && \
     apt-get update
 
 #Prevent daemon start during install
@@ -21,10 +21,10 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server && \
 	echo 'root:root' |chpasswd
 
 #Utilities
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y vim less ntp net-tools inetutils-ping curl git telnet
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y vim less net-tools inetutils-ping curl git telnet nmap socat
 
 #Others
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y vlan bridge-utils python-software-properties software-properties-common python-keyring
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y vlan bridge-utils python python-pip python-software-properties software-properties-common python-keyring
 
 #MySQL
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server python-mysqldb && \
@@ -104,6 +104,27 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -qqy iptables ca-certificates
     chmod +x /usr/local/bin/docker
 VOLUME /var/lib/docker
 
+#todo move up later
+#Neutron
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y neutron-server neutron-dhcp-agent neutron-plugin-openvswitch neutron-l3-agent
+RUN echo "net.ipv4.ip_forward=1\nnet.ipv4.conf.all.rp_filter=0\nnet.ipv4.conf.default.rp_filter=0" >> /etc/sysctl.conf
+RUN sed -i -e "s#^admin_tenant_name =.*#admin_tenant_name = service#" \
+    	-e "s#^admin_user =.*#admin_user = neutron#" \
+       	-e "s#^admin_password =.*#admin_password = neutron#" \
+        -e "s#^connection.*#connection = mysql://neutron@localhost/neutron#" \
+ 	/etc/neutron/neutron.conf && \
+ 	sed -i -e "s|\[filter:authtoken\]\n.*||" /etc/neutron/api-paste.ini
+
+#Heat
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y heat-api heat-api-cfn heat-engine
+RUN mkdir /etc/heat/environment.d && \
+    sed -i -e "s|^sql_connection.*||" \
+           -e "s|^#sql_connection.*|sql_connection = mysql://heat@localhost/heat|" \
+        /etc/heat/heat.conf && \
+    sed -i -e "s|.*auth_token.*|paste.filter_factory = heat.common.auth_token:filter_factory\nauth_host = localhost\nauth_port = 35357\nauth_protocol = http\nadmin_tenant_name = service\nadmin_user = heat\nadmin_password = heat|" \
+        /etc/heat/api-paste.ini
+
+
 #Config files
 ADD ./ /docker-openstack
 RUN cd /docker-openstack && \
@@ -120,6 +141,7 @@ RUN mysqld & keystone-all & apachectl start & sleep 3 && \
     /docker-openstack/sample_data.sh && \
     nova-manage db sync && \
     glance-manage db_sync && \
+    heat-manage db_sync && \
     mysqladmin shutdown
 
 #ENV
