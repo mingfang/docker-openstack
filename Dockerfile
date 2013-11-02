@@ -113,7 +113,8 @@ RUN sed -i -e "s#^admin_tenant_name =.*#admin_tenant_name = service#" \
        	-e "s#^admin_password =.*#admin_password = neutron#" \
         -e "s#^connection.*#connection = mysql://neutron@localhost/neutron#" \
  	/etc/neutron/neutron.conf && \
- 	sed -i -e "s|\[filter:authtoken\]\n.*||" /etc/neutron/api-paste.ini
+    sed -i -e "s|.*auth_token.*|paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory\nauth_host = localhost\nauth_uri=http://localhost:5000\nadmin_tenant_name = service\nadmin_user = neutron\nadmin_password = neutron|" \
+ 	    /etc/neutron/api-paste.ini
 
 #Heat
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y heat-api heat-api-cfn heat-engine
@@ -123,6 +124,11 @@ RUN mkdir /etc/heat/environment.d && \
         /etc/heat/heat.conf && \
     sed -i -e "s|.*auth_token.*|paste.filter_factory = heat.common.auth_token:filter_factory\nauth_host = localhost\nauth_port = 35357\nauth_protocol = http\nadmin_tenant_name = service\nadmin_user = heat\nadmin_password = heat|" \
         /etc/heat/api-paste.ini
+
+RUN git clone https://github.com/dotcloud/openstack-heat-docker.git && \
+    pip install -r openstack-heat-docker/requirements.txt && \
+    mkdir /usr/lib/heat && \
+    ln -sf $(cd openstack-heat-docker/plugin; pwd) /usr/lib/heat/docker
 
 
 #Config files
