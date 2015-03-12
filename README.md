@@ -33,3 +33,7 @@ That means Heat can create stacks directly with Docker instead of Nova.  I'm sti
 
 Special thanks to Jérôme Petazzoni for helping me with a previous DNS/Networking problem.
 Find out more from his blog entry here http://jpetazzo.github.io/2013/10/16/configure-docker-bridge-network/
+
+#### License
+
+MIT License. Copyright (c) 2015 Ming Fang
